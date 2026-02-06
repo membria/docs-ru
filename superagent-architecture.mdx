@@ -70,24 +70,173 @@ flowchart TD
     subgraph "IDE / PR / CI Layer"
         A[VS Code, GitHub PR, Jira, CI jobs]
     end
-    A --> B(Claude Control Plane - CCP)
-    
-    subgraph CCP [Claude Control Plane (CCP)]
-        B --> C(Task Router)
-        C --> D(Agent / TENN<br/>graph + logic)
-        D --> E(Policy Engine<br/>what is allowed)
-        E --> F(MCP Server - Runtime Control)
+
+    A --> CCP[Claude Control Plane (CCP)]
+
+    subgraph CCP
+        TR[Task Router]
+        T1[Tactical Task]
+        T2[Decision Task]
+        T3[Learning Task]
+        PG[Pre-Generation Context Fetch]
+        DS[Decision Surface (IDE Inline)]
+        DC[Decision Capture (DBB)]
+        AG[Agent / TENN (graph + logic)]
     end
 
-    F -->|context injection, tool exposure| G(Claude Code<br/>stateless)
-    F --> H(Debias Validators)
-    H --> I(Membria Reasoning Graph)
-    
-    subgraph Feedback [Async Feedback Loop]
-        I --> J{Outcome Capture Layer}
-        J -->|Updates Beliefs/LoRA| I
-    end
+    CCP --> TR
+    TR --> T1
+    TR --> T2
+    TR --> T3
+    T2 --> PG
+    PG --> DS
+    DS --> DC
+    DC --> AG
+
+    AG --> PE[Policy Engine (Graph-Informed)]
+    PE --> MCP[MCP Server (Claude Runtime Control)]
+    MCP --> CC[Claude Code (stateless)]
+    MCP --> VG[Post-Generation Validators]
+    VG --> RG[Membria Reasoning Graph]
+    RG --> OCL[Outcome Capture Layer]
+    OCL --> RG
 ```
+
+### Классификация Task Router
+
+- **code_gen** -> тактическая (без фиксации решения)
+- **architecture** -> решение (полный поток Membria)
+- **refactor** -> решение (если структурное изменение)
+- **debug** -> тактическая (если нет выбора корневой причины)
+- **library_choice** -> решение (всегда)
+
+**Decision signals:**
+- "choose", "decide", "should we", "which is better"
+- Упомянуто несколько альтернатив
+- Архитектурные ключевые слова: "pattern", "structure", "design"
+
+### Pre-Generation Context Fetch (Query Reasoning Graph)
+
+- Прошлые решения по этому модулю
+- Проваленные похожие предположения
+- Калибровка команды по домену
+- Оповещения о негативных знаниях
+
+### Decision Surface (inline in IDE)
+
+Показывает разработчику:
+- Похожие прошлые решения
+- Предупреждения о рисках
+- Подсказки по калибровке
+- Альтернативные варианты
+
+Кнопки:
+- [Proceed]
+- [Review]
+- [Override]
+
+### Decision Capture (DBB)
+
+Фиксирует:
+- Statement
+- Alternatives
+- Confidence level
+- Predicted outcome
+- Context (immutable)
+
+### Agent / TENN Execution Modes
+
+- Tactical: прямое генерация кода
+- Decision: генерация с внедренным контекстом
+- Learning: связывает исход с историческим решением
+
+### Policy Engine (Graph-Informed)
+
+Статические правила:
+- Политики безопасности (без хардкода секретов)
+- Комплаенс требования (GDPR, SOC2)
+- Code style enforcement
+
+Динамические правила (из Reasoning Graph):
+- Корректировки калибровки команды
+- Порог уверенности по домену
+- Применение негативных знаний
+
+Resonance detection:
+- Проверка совпадения bias человека и LLM
+- Трение, если оба игнорируют один и тот же риск
+
+### MCP Server (Claude Runtime Control)
+
+- Инъекция контекста:
+  - Контекст решения из фиксации
+  - Негативные знания из графа
+  - Предпочтения и паттерны команды
+- Tool exposure:
+  - Code generation tools
+  - Graph query tools
+  - Decision recording tools
+- Mode enforcement:
+  - Tactical mode: минимальный контекст
+  - Decision mode: полный контекст
+- Output schema validation
+
+### Post-Generation Validators
+
+Bias detection in output:
+- Anchoring: чрезмерный фокус на первой опции в комментариях коду
+- Confirmation: игнорирование заявленных альтернатив
+- Overconfidence: "definitely", "always works", "no issues"
+
+Consistency checks:
+- Код соответствует зафиксированному решению?
+- Негативные знания соблюдены?
+- Альтернативы действительно рассмотрены в реализации?
+
+Validation failures:
+- Логировать для калибровки (не блокировать)
+- Уведомлять при критичности (security, compliance)
+
+### Membria Reasoning Graph (Decision Record)
+
+```
+decision_id: dec_142
+statement: "Use Fastify for REST API"
+alternatives: ["Express.js", "Koa", "Custom"]
+confidence: 0.60
+predicted_outcome: "Stable API, good performance"
+assumptions: ["Fastify handles our load", "Team knows it"]
+context_hash: "abc123..." (immutable)
+status: PENDING_OUTCOME
+linked_pr: null -> PR#234 (when created)
+linked_commit: null -> commit_sha (when merged)
+```
+
+Relationships:
+- RELIES_ON: assumptions
+- BLOCKS: dependent decisions
+- SUPERSEDES: previous decisions on same topic
+- CAUSED_BY: parent architectural decisions
+
+### Outcome Capture Layer (Commitment Events)
+
+| Source | Event | Outcome Signal |
+|--------|-------|----------------|
+| GitHub | PR merged | Decision executed |
+| GitHub | PR closed (no merge) | Decision abandoned |
+| CI/CD | Tests pass | Positive signal |
+| CI/CD | Tests fail | Negative signal |
+| CI/CD | Build fail | Negative signal |
+| PagerDuty | Incident created | Strong negative |
+| Jira | Bug linked to PR | Negative signal |
+| Time | 30 days stable | Positive outcome |
+| Time | 90 days stable | Strong positive outcome |
+
+Calibration update:
+- Compare predicted_outcome vs actual_outcome
+- Update team calibration profile
+- Update domain-specific calibration
+- Generate LoRA candidate if systematic gap detected
 
 ## Результаты Vibe Coding
 
