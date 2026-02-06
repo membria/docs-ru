@@ -514,22 +514,17 @@ Claude генерирует код API на Fastify с учетом:
 
 **Что такое мультиагентная архитектура:**
 
-```
-Запрос пользователя
-    ↓
-┌─────────────────────────────────────────────┐
-│  Orchestrator Agent                         │
-│  "Разберись, кто что делает"                │
-└─────────────────────────────────────────────┘
-    ↓           ↓           ↓           ↓
-┌───────┐  ┌───────┐  ┌───────┐  ┌───────┐
-│Planner│  │Coder  │  │Reviewer│ │Tester │
-│Agent  │  │Agent  │  │Agent   │ │Agent  │
-└───────┘  └───────┘  └───────┘  └───────┘
-    ↓           ↓           ↓           ↓
-    └───────────┴───────────┴───────────┘
-                    ↓
-            Финальный ответ
+```mermaid
+flowchart TD
+  U["Запрос пользователя"] --> O["Orchestrator Agent<br/>\"Разберись, кто что делает\""]
+  O --> P["Planner Agent"]
+  O --> C["Coder Agent"]
+  O --> R["Reviewer Agent"]
+  O --> T["Tester Agent"]
+  P --> F["Финальный ответ"]
+  C --> F
+  R --> F
+  T --> F
 ```
 
 Каждый агент = отдельный вызов LLM с полным контекстом.
@@ -701,3 +696,755 @@ CFO: "Почему счет за ИИ выше, чем за AWS?"
 *   Затраты, которые не взрываются.
 
 **Vibe coding перестает быть «генерацией с нуля каждый раз» и становится «генерацией с памятью проекта».**
+
+---
+
+## Membria (Superagent) против мультиагентной архитектуры
+
+### Почему мультиагенты становятся архитектурным тупиком
+
+**Как выглядит мультиагентная архитектура:**
+```
+User prompt
+    ↓
+┌─────────────────────────────────────────────┐
+│  Orchestrator Agent                         │
+│  "Разберись кто что делает"                │
+└─────────────────────────────────────────────┘
+    ↓           ↓           ↓           ↓
+┌───────┐  ┌───────┐  ┌───────┐  ┌───────┐
+│Planner│  │Coder  │  │Reviewer│ │Tester │
+│Agent  │  │Agent  │  │Agent   │ │Agent  │
+└───────┘  └───────┘  └───────┘  └───────┘
+    ↓           ↓           ↓           ↓
+    └───────────┴───────────┴───────────┘
+                    ↓
+            Final response
+```
+
+Каждый агент — это отдельный вызов LLM с полным контекстом.
+
+---
+
+### Экономика токенов: мультиагенты vs Membria
+
+**Типичная задача: "Add REST API for user management"**
+
+#### Multi-Agent подход
+
+| Агент | Входные токены | Выходные токены | Стоимость (Claude Sonnet) |
+|-------|-------------|---------------|---------------------|
+| Orchestrator | 4,000 | 500 | $0.018 |
+| Planner | 6,000 | 1,500 | $0.030 |
+| Coder | 8,000 | 3,000 | $0.057 |
+| Reviewer | 12,000 | 1,000 | $0.051 |
+| Tester | 10,000 | 800 | $0.039 |
+| Fixer (итерация 1) | 14,000 | 2,000 | $0.062 |
+| Fixer (итерация 2) | 16,000 | 1,500 | $0.066 |
+| **ИТОГО за задачу** | **70,000** | **10,300** | **$0.32** |
+
+**В день (20 задач):** $6.40
+**В месяц (20 рабочих дней):** $128 на одного разработчика
+**Команда 5 человек:** $640/месяц только на токены
+
+И это **без учета:**
+- Повторов (retry) при сбоях
+- Длинных контекстов в больших проектах
+- Масштабирования при активной разработке
+
+#### Membria подход (Superagent)
+
+| Компонент | Входные токены | Выходные токены | Стоимость |
+|-----------|-------------|---------------|------|
+| Context fetch (запрос к графу) | 0 | 0 | $0 (локально) |
+| Один вызов Claude + внедренный контекст | 6,000 | 3,000 | $0.033 |
+| **ИТОГО за задачу** | **6,000** | **3,000** | **$0.033** |
+
+**В день (20 задач):** $0.66
+**В месяц:** $13.20 на разработчика
+**Команда 5 человек:** $66/месяц
+
+**Разница: в 10 раз дешевле**
+
+---
+
+### Почему мультиагенты сжигают токены
+
+```mermaid
+flowchart TD
+  subgraph MA[Multi-agent]
+    U1[User request] --> O[Orchestrator]
+    O --> P[Planner]
+    O --> C[Coder]
+    O --> R[Reviewer]
+    O --> T[Tester]
+    P --> F1[Final response]
+    C --> F1
+    R --> F1
+    T --> F1
+  end
+
+  subgraph MS[Membria Superagent]
+    U2[User request] --> GQ[Graph query\nлокально: 0 токенов]
+    GQ --> CTX[Relevant context\n~2k tokens]
+    CTX --> LLM[Single Claude Code call\nwith injected context]
+    LLM --> OUT[Code + decision record]
+  end
+```
+
+---
+
+### Сравнение архитектур
+
+| Аспект | Multi-Agent | Membria Superagent |
+|--------|-------------|-------------------|
+| **Токены на задачу** | 70,000+ | 6,000-10,000 |
+| **Стоимость/месяц (5 человек)** | $500-1000 | Фиксированная подписка |
+| **Latency** | 5-15 секунд (последовательные вызовы) | 1-3 секунды |
+| **Failure modes** | Любой агент может сломаться | Одна точка отказа |
+| **Контекст между задачами** | Теряется | Сохраняется в графе |
+| **Память проекта** | Нет (stateless) | Есть (persistent) |
+| **Debugging** | "Какой агент сломался?" | Один trace |
+| **Масштабирование** | Линейный рост стоимости | Предсказуемая стоимость |
+
+---
+
+### Модель ценообразования
+
+#### Multi-Agent (usage-based):
+
+```
+Месяц 1:  онбординг               → $200
+Месяц 2:  активная разработка     → $800
+Месяц 3:  дедлайн, heavy usage    → $2,400
+Месяц 4:  новый дедлайн           → $3,100
+
+"Why is the AI bill higher than AWS?!"
+```
+
+#### Membria (subscription):
+
+```
+Месяц 1:  $49/seat × 5 = $245
+Месяц 2:  $245
+Месяц 3:  $245 (дедлайн? та же цена)
+Месяц 4:  $245
+
+Predictable. Budgetable. Uncapped.
+```
+
+---
+
+### Технические проблемы мультиагентов
+
+**1. Фрагментация контекста**
+```
+Planner agent thinks: "Use Redis for caching"
+Coder agent doesn't get the full context
+→ Implements an in-memory cache
+→ Reviewer agent: "Why not Redis?"
+→ 3 more iterations
+```
+
+**2. Размывание ответственности**
+```
+Инцидент в проде.
+"Which agent made this decision?"
+Orchestrator: "I just routed tasks"
+Planner: "I made a plan, the coder changed it"
+Coder: "Reviewer approved"
+Reviewer: "Tester missed it"
+
+→ No single owner, no single decision record
+```
+
+**3. Несогласованность рассуждений**
+```
+Planner (temperature 0.7): creative plan
+Coder (temperature 0.2): conservative implementation
+→ Mismatch between plan and code
+→ Reviewer doesn't understand the intent
+```
+
+**4. Экспоненциальные сбои**
+```
+5 agents, each 95% reliable
+Combined reliability: 0.95^5 = 77%
+
+23% of tasks require retries = even more tokens
+```
+
+---
+
+### Почему Membria Superagent работает лучше
+
+```mermaid
+flowchart TD
+  U[User request] --> GQ[Membria graph query\nлокально: 0 токенов]
+  GQ --> S1[Past decisions\non this module]
+  GQ --> S2[Negative knowledge\nwhat not to do]
+  GQ --> S3[Team patterns\npreferences & conventions]
+  GQ --> S4[Failed attempts\nwhat already broke]
+  S1 --> CTX[Compact relevant context\n~2k tokens]
+  S2 --> CTX
+  S3 --> CTX
+  S4 --> CTX
+  CTX --> LLM[Single Claude Code call\nwith injected context]
+  LLM --> OUT[Code + decision record]
+```
+
+---
+
+### ROI сравнение (команда 10 человек, 12 месяцев)
+
+#### Multi-agent
+
+| Статья | Стоимость |
+|--------|-----------|
+| Токены (средняя нагрузка) | $800/mo × 12 = $9,600 |
+| Токены (пиковые месяцы ×3) | +$4,800 |
+| DevOps на оркестрацию агентов | $2,000 |
+| Отладка сбоев агентов | $3,000 (время разработчиков) |
+| **ИТОГО** | **$19,400/year** |
+
+#### Membria
+
+| Статья | Стоимость |
+|--------|-----------|
+| Подписка $49/seat × 10 × 12 | $5,880 |
+| Пиковые месяцы | $0 (подписка) |
+| Инфраструктура | $0 (managed) |
+| **ИТОГО** | **$5,880/year** |
+
+**Экономия: $13,520/year = 70%**
+
+---
+
+### Почему подписка работает для Membria
+
+```
+Затраты Membria:
+├── Graph storage: $0.001 per decision (negligible)
+├── Graph queries: local, CPU only
+├── LLM calls: customers pay their own Claude tokens
+└── Our infrastructure: fixed
+
+We do not resell tokens with markup.
+We sell context that makes tokens more efficient.
+```
+
+**Вендоры Multi-Agent:**
+```
+Их затраты:
+├── 5-10x LLM calls per task
+├── Resell tokens with margin
+└── More usage = higher bill
+
+Их стимул: чтобы вы использовали больше агентов
+```
+
+**Наш стимул:**
+```
+Better context = fewer tokens needed
+Better negative knowledge = less rework
+Better calibration = fewer errors
+
+Win-win: customers save money, we grow on seats, not usage
+```
+
+---
+
+### Итоговая сводка
+
+| | Multi-Agent | Membria Superagent |
+|--|-------------|-------------------|
+| **Архитектура** | N агентов × полный контекст | 1 агент × умный контекст |
+| **Токены** | O(n^2) на задачу | O(1) на задачу |
+| **Стоимость** | Usage-based, непредсказуемо | Подписка, предсказуемо |
+| **Память** | Нет (каждый раз с нуля) | Есть (graph) |
+| **При scale** | Costs растут линейно | Costs предсказуемы |
+| **Debugging** | "Какой агент сломался?" | Один trace |
+| **Vendor lock-in** | Высокий (их orchestration) | Низкий (стандартный Claude) |
+
+**Bottom line:** Multi-agent пытается решить "как разделить работу", создавая новую проблему: "как синхронизировать контекст между агентами и не разориться на токенах".
+
+Membria решает корневую проблему: **даёт одному агенту правильный контекст**, вместо того чтобы плодить агентов с неполным контекстом.
+
+---
+
+## Membria Graph против Skills/Markdown-хранения контекста
+
+### Что такое подход Skills/MD
+
+```
+project/
+├── CLAUDE.md              # "Как устроен проект"
+├── skills/
+│   ├── coding-style.md    # "Пиши код так"
+│   ├── architecture.md    # "Обзор архитектуры"
+│   └── decisions.md       # "Мы решили X, потому что Y"
+└── docs/
+    └── adr/               # Architecture Decision Records
+        ├── 001-use-fastify.md
+        └── 002-auth-strategy.md
+```
+
+Claude читает эти файлы → получает контекст → генерирует код.
+
+**Это работает, но у подхода есть фундаментальные ограничения.**
+
+---
+
+### Проблема 1: линейный рост = линейный рост токенов
+
+**Skills/MD:**
+```
+Месяц 1:   5 MD файлов   →  3,000 токенов контекста
+Месяц 6:   25 MD файлов  → 15,000 токенов контекста
+Месяц 12:  60 MD файлов  → 40,000 токенов контекста
+Год 2:     120 MD файлов → 80,000 токенов контекста
+
+Проблема: Claude читает ВСЁ, включая нерелевантное
+```
+
+**Membria Graph:**
+```
+Месяц 1:   50 decisions   → запрос в граф → 2,000 токенов релевантного контекста
+Месяц 6:   300 decisions  → запрос в граф → 2,000 токенов релевантного контекста
+Месяц 12:  700 decisions  → запрос в граф → 2,000 токенов релевантного контекста
+Год 2:     1500 decisions → запрос в граф → 2,000 токенов релевантного контекста
+
+Граф возвращает ТОЛЬКО то, что относится к текущей задаче
+```
+
+| Возраст проекта | Skills/MD токены | Membria токены |
+|-----------------|------------------|----------------|
+| 1 месяц | 3,000 | 2,000 |
+| 6 месяцев | 15,000 | 2,000 |
+| 1 год | 40,000 | 2,000 |
+| 2 года | 80,000+ | 2,000 |
+
+**Membria: O(1) контекст независимо от размера истории**
+
+---
+
+### Проблема 2: Markdown-файлы не знают, что релевантно
+
+**Skills/MD:**
+```
+Задача: "Add caching to user service"
+
+Claude получает ВСЁ:
+├── coding-style.md (релевантно)
+├── architecture.md (частично релевантно)
+├── auth-decisions.md (НЕ релевантно)
+├── database-schema.md (НЕ релевантно)
+├── api-conventions.md (частично релевантно)
+├── deployment-guide.md (НЕ релевантно)
+└── ...ещё 20 файлов
+
+Результат: 80% контекста — шум
+```
+
+**Membria Graph:**
+```
+Задача: "Add caching to user service"
+
+Graph query:
+  "decisions about caching OR user-service
+   WITH outcomes
+   WHERE relevance > 0.7"
+
+Claude получает ТОЛЬКО:
+├── Decision #45: "Redis for session cache" → SUCCESS
+├── Decision #67: "In-memory cache for user-service" → FAILURE (OOM)
+├── Negative knowledge: "Avoid unbounded in-memory caches"
+└── Team pattern: "Cache TTL should be configurable"
+
+Результат: 100% контекста — сигнал
+```
+
+---
+
+### Проблема 3: Markdown — это мнение, а не факт
+
+**Skills/MD:**
+```markdown
+# architecture.md
+
+We use Redis for caching because it's fast and reliable.
+```
+
+Вопросы без ответа:
+- Когда это решили?
+- Кто решил?
+- Какие альтернативы рассматривали?
+- Это сработало?
+- В каком контексте это верно?
+
+**Membria Graph:**
+```
+Decision #45:
+├── statement: "Use Redis for session caching"
+├── decided_by: "@john"
+├── decided_at: "2024-03-15"
+├── alternatives_rejected:
+│   ├── "Memcached" — reason: "No persistence"
+│   └── "In-memory" — reason: "Won't scale across instances"
+├── assumptions:
+│   └── "Session load < 10k/sec" — status: VALIDATED
+├── outcome: SUCCESS
+├── evidence:
+│   ├── PR #234 merged
+│   ├── 90 days stable
+│   └── P99 latency: 2ms
+└── context_constraints:
+    └── "Valid for session data, NOT for computed caches"
+```
+
+**Markdown = утверждение. Graph = верифицированный факт с провенансом.**
+
+---
+
+### Проблема 4: Markdown не обновляется автоматически
+
+**Skills/MD:**
+```
+Реальность:
+├── Март: решили использовать библиотеку X
+├── Апрель: написали в decisions.md "we use X"
+├── Июль: X сломался, перешли на Y
+├── Август: забыли обновить decisions.md
+├── Октябрь: новый разработчик читает "we use X"
+└── Октябрь: пишет код на X, потому что так написано
+
+Markdown врет, потому что его забывают обновлять
+```
+
+**Membria Graph:**
+```
+├── March: Decision #89 captured: "Use library X"
+├── July: PR merged switching to Y
+├── July: Outcome recorded: Decision #89 → SUPERSEDED
+├── July: Decision #112 captured: "Switch to Y because X failed"
+├── October: new dev asks about library choice
+└── October: graph returns: "Y (X was tried, failed in July)"
+
+Граф обновляется через Commitment Events, а не через человеческую дисциплину
+```
+
+---
+
+### Проблема 5: Markdown не умеет хранить negative knowledge
+
+**Skills/MD:**
+```markdown
+# decisions.md
+
+We use passport.js for authentication.
+```
+
+Чего не хватает:
+- Почему не custom middleware?
+- Что случилось, когда пробовали custom?
+- Какие еще подходы не сработали?
+
+**Типичный сценарий:**
+```
+Новый разработчик: "Custom middleware будет проще"
+Senior: "Мы пробовали, не помню почему не вышло"
+Новый разработчик: *делает custom middleware*
+*Через месяц: security incident*
+```
+
+**Membria Graph:**
+```
+Negative Knowledge Node:
+├── statement: "Custom auth middleware"
+├── last_attempted: "2024-06-15"
+├── outcome: FAILURE
+├── reason: "Security vulnerability CVE-2024-XXXX"
+├── incident_link: "INC-456"
+├── recommendation: "Use passport.js or auth0"
+└── auto_block: true  ← Claude получает предупреждение
+
+При попытке написать custom middleware:
+⚠️ "Custom auth middleware failed 6 months ago (security).
+    Use passport.js instead. See Decision #89 for details."
+```
+
+**Markdown хранит, что делать. Graph хранит, что НЕ делать.**
+
+---
+
+### Проблема 6: Markdown не связывает решения → исходы
+
+**Skills/MD:**
+```markdown
+# decisions.md
+
+2024-03-15: Decided to use Fastify for performance.
+```
+
+Через 6 месяцев:
+- Fastify оправдал ожидания? Неизвестно.
+- Производительность улучшилась? Неизвестно.
+- Были проблемы? Неизвестно.
+
+**Membria Graph:**
+```
+Decision #142:
+├── statement: "Use Fastify for performance"
+├── predicted_outcome: "Handle 10k req/s"
+├── confidence: 0.75
+│
+├── [6 months later, auto-linked]
+│
+├── actual_outcome: SUCCESS
+├── measured_performance: "12k req/s achieved"
+├── issues_encountered: 1 minor (plugin compatibility)
+├── time_to_stable: 18 days
+│
+└── calibration_delta: +0.03 (prediction was accurate)
+```
+
+**Markdown = снимок. Graph = живой документ с feedback loop.**
+
+---
+
+### Проблема 7: Markdown требует человеческой дисциплины
+
+**Skills/MD workflow:**
+```
+1. Принять решение
+2. Не забыть записать в Markdown
+3. Записать правильно
+4. Не забыть обновить при изменении
+5. Не забыть удалить при устаревании
+6. Надеяться, что все читают перед работой
+
+Failure rate: high
+```
+
+**Membria workflow:**
+```
+1. Работать как обычно (PR, Slack, code)
+2. Membria автоматически детектит решения
+3. Разработчик подтверждает (1 клик)
+4. Outcomes линкуются автоматически через CI/CD
+5. Устаревание детектится через сигналы superseding/outcomes
+
+Failure rate: low (automation)
+```
+
+---
+
+### Проблема 8: Markdown не масштабируется на команду
+
+**Skills/MD:**
+```
+├── Alice пишет в decisions.md
+├── Bob не видит изменения (не обновил repo)
+├── Carol пишет конфликтующее решение
+├── Merge conflict в Markdown-файле
+├── Кто-то "resolves" конфликт, удаляя важное
+└── Institutional knowledge потеряно
+```
+
+**Membria Graph:**
+```
+├── Alice фиксирует решение → instant sync
+├── Bob сразу видит это в Decision Surface
+├── Carol пытается зафиксировать конфликтующее решение
+├── Graph показывает: "Conflicts with Decision #89 by Alice"
+├── Команда обсуждает, явно supersedes или подтверждает
+└── Полный audit trail сохранен
+```
+
+---
+
+### Сравнительная таблица
+
+| Аспект | Skills/MD | Membria Graph |
+|--------|-----------|---------------|
+| **Контекст при росте проекта** | O(n) — растет линейно | O(1) — фиксированный |
+| **Релевантность** | Всё или ничего | Query по релевантности |
+| **Верификация** | Мнение автора | Факт + outcome |
+| **Обновление** | Ручное (забывают) | Автоматическое |
+| **Negative knowledge** | Обычно отсутствует | First-class citizen |
+| **Decision → Outcome** | Не связаны | Автоматическая связка |
+| **Дисциплина** | Требуется высокая | Минимальная |
+| **Командная работа** | Конфликты, потери | Sync + audit trail |
+| **Провенанс** | "Кто-то когда-то решил" | Кто, когда, почему, что вышло |
+| **Запросы** | Читать всё | Семантический поиск |
+
+---
+
+### Когда Markdown достаточно
+
+Skills/Markdown подход работает, если:
+- Проект < 3 месяцев
+- Команда 1-2 человека
+- Решений < 20
+- Не нужен outcome tracking
+- Высокая дисциплина документирования
+
+### Когда нужен Membria Graph
+
+- Проект > 6 месяцев
+- Команда > 3 человек
+- Решения накапливаются
+- Важно не повторять ошибки
+- Нужен audit trail
+- Нужен онбординг новых людей
+- Хочется учиться на outcomes
+
+---
+
+### Bottom Line
+
+**Skills/Markdown** — это "записная книжка проекта". Полезно, но:
+- Растет бесконтрольно
+- Устаревает
+- Не знает, что важно прямо сейчас
+- Не связывает решения с результатами
+
+**Membria Graph** — это "институциональная память с верификацией":
+- Возвращает только релевантное
+- Обновляется автоматически
+- Знает, что сработало, а что нет
+- Блокирует повторение ошибок
+
+```
+MD = static documentation
+Graph = queryable, verified, living knowledge
+```
+
+---
+
+## Приложение: Целевая аудитория и честные ограничения
+
+# Membria: Target Audience & Honest Limitations
+
+## Для кого Membria (и для кого нет)
+
+---
+
+## Executive Summary
+
+Membria — это **продукт для команд**, а не индивидуальный инструмент. Этот раздел дает честные ориентиры: где Membria дает ценность, а где достаточно более простых альтернатив.
+
+**Ключевой инсайт:** Membria решает проблему **утечки институциональных знаний в командах**. Если у вас нет команды, у вас нет и этой проблемы.
+
+---
+
+## Какую проблему решает Membria
+
+```
+Команда из 8 разработчиков, проект идет 18 месяцев:
+
+├── Alice приняла архитектурное решение в марте
+├── Alice ушла из компании в июле
+├── Bob вышел в сентябре
+├── Bob: "Почему это сделано так?"
+├── Все: "Исторически так сложилось... Alice знала"
+├── Bob пробует другой подход
+├── Подход проваливается (Alice уже пробовала, не сработало)
+├── Потрачено 2 недели
+└── Повторяется десятки раз на разных решениях
+```
+
+**Вот проблема.** Знания уходят вместе с людьми. Решения забываются. Ошибки повторяются.
+
+---
+
+## Идеальный профиль клиента
+
+### ✅ Membria ПОДХОДИТ
+
+```
+Характеристики команды:
+├── Размер: 5-20 разработчиков
+├── Длительность проекта: > 12 месяцев
+├── Текучка: люди периодически приходят/уходят
+├── Сложность: архитектурные решения имеют значение
+├── Боль: "Почему так?" — частый вопрос
+└── Культура: готовы инвестировать в инструменты
+
+Сигналы отрасли:
+├── Регулируемые индустрии (нужен audit trail)
+├── Enterprise software (долго живущие кодовые базы)
+├── Агентства с долгими отношениями с клиентами
+├── Scale-ups с растущей командой разработки
+└── Компании с распределенными командами
+
+Бюджетная реальность:
+├── $49/seat/month приемлемо
+├── Ок горизонт ROI 3-6 месяцев
+├── Есть инженерный менеджер, владелец решения по тулингу
+└── Ценят снижение времени онбординга
+```
+
+### ❌ Membria НЕ ПОДХОДИТ
+
+```
+Соло-разработчики:
+├── Вы и есть institutional memory
+├── Вы помните свои решения
+├── README.md на проект достаточно
+├── $49/мес за память, которая у вас уже есть = невыгодно
+└── Исключение: владелец агентства с 50+ клиентами на 5+ лет
+
+Маленькие команды (2-3 человека):
+├── Синхронизация происходит естественно (daily standups)
+├── Все знают всё
+├── Slack search достаточно
+├── Низкий эффект от текучки
+└── CLAUDE.md + хорошие доки = достаточно
+
+Короткие проекты (< 6 месяцев):
+├── Не успевают накопиться решения
+├── Outcomes не проявятся до конца проекта
+├── Не сформируется negative knowledge
+├── ROI = ноль
+└── Стоимость внедрения > польза
+
+Ранние стартапы:
+├── Всё постоянно меняется
+├── "Решения" отменяются каждую неделю
+├── Нужна скорость, а не документация
+├── Команда 2-4 человека, которые постоянно общаются
+└── Преждевременная оптимизация knowledge management
+
+Контракторы/фрилансеры:
+├── Проект заканчивается — отношения заканчиваются
+├── Клиент все равно владеет кодовой базой
+├── Handoff документа достаточно
+├── Нет ответственности за долгую поддержку
+└── README на проект достаточно
+```
+
+---
+
+## Почему соло-разработчикам не нужна Membria
+
+### Аргумент: "Соло-разработчик с множеством проектов"
+
+```
+Тезис:
+├── Соло-разработчик ведет 5 проектов
+├── Постоянно переключает контекст
+├── Membria помнит решения по всем проектам
+├── Ценность: межпроектная память
+
+Reality check: ❌
+```
+
+### Контраргумент 1: контекст не переносится
+
+```
+Решение в проекте A: "Use Redis for caching"
+Контекст A: высокая нагрузка, распределенная система, 10k req/s
+
+Проект D: простой CRUD для малого бизнеса
+```
