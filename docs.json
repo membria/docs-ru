@@ -1,0 +1,288 @@
+{
+    "$schema": "https://mintlify.com/docs.json",
+    "theme": "mint",
+    "name": "Membria Reasoning Graph (RU)",
+    "colors": {
+        "primary": "#0F172A",
+        "light": "#2563EB",
+        "dark": "#0F172A"
+    },
+    "favicon": "/favicon.svg",
+    "navigation": {
+        "tabs": [
+            {
+                "tab": "Главная / Обзор",
+                "groups": [
+                    {
+                        "group": "Добро пожаловать",
+                        "pages": [
+                            "index",
+                            "rg-architecture"
+                        ]
+                    },
+                    {
+                        "group": "Начало работы",
+                        "pages": [
+                            "quickstart",
+                            "development"
+                        ]
+                    }
+                ]
+            },
+            {
+                "tab": "Membria CE (Community Edition)",
+                "groups": [
+                    {
+                        "group": "Обзор",
+                        "pages": [
+                            "membria-ce/overview",
+                            "membria-ce/getting-started",
+                            "membria-ce/concepts"
+                        ]
+                    },
+                    {
+                        "group": "Среда выполнения клиента",
+                        "pages": [
+                            "membria-ce/client",
+                            "membria-ce/client-runtime",
+                            "membria-ce/dbb-and-lora-runtime",
+                            "membria-ce/diagrams"
+                        ]
+                    },
+                    {
+                        "group": "Архитектура и бэкенд",
+                        "pages": [
+                            "membria-ce/technical",
+                            "membria-ce/decentralized-backend",
+                            "membria-ce/kcg-gateways"
+                        ]
+                    },
+                    {
+                        "group": "Бизнес и токен",
+                        "pages": [
+                            "membria-ce/market",
+                            "membria-ce/business-model",
+                            "membria-ce/revenue-economics",
+                            "membria-ce/tokenomics",
+                            "membria-ce/treasury",
+                            "membria-ce/competitive",
+                            "membria-ce/team",
+                            "membria-ce/utility"
+                        ]
+                    },
+                    {
+                        "group": "Развертывание и безопасность",
+                        "pages": [
+                            "membria-ce/deployment-hosting",
+                            "membria-ce/security-privacy"
+                        ]
+                    }
+                ]
+            },
+            {
+                "tab": "Membria SMB (SaaS)",
+                "groups": [
+                    {
+                        "group": "Обзор",
+                        "pages": [
+                            "membria-smb/overview",
+                            "membria-smb/getting-started",
+                            "membria-smb/concepts",
+                            "membria-smb/positioning",
+                            "membria-smb/target-market"
+                        ]
+                    },
+                    {
+                        "group": "Продукт",
+                        "pages": [
+                            "membria-smb/decision-surface",
+                            "membria-smb/decision-black-box",
+                            "membria-smb/dbb-heuristics",
+                            "membria-smb/from-chat-to-institutional-memory"
+                        ]
+                    },
+                    {
+                        "group": "Архитектура",
+                        "pages": [
+                            "membria-smb/architecture",
+                            "membria-smb/deployment-hosting"
+                        ]
+                    },
+                    {
+                        "group": "Операции",
+                        "pages": [
+                            "membria-smb/roles-workflows",
+                            "membria-smb/implementation",
+                            "membria-smb/security-privacy"
+                        ]
+                    },
+                    {
+                        "group": "Бизнес",
+                        "pages": [
+                            "membria-smb/pricing",
+                            "membria-smb/roadmap",
+                            "membria-smb/sales-positioning"
+                        ]
+                    }
+                ]
+            },
+            {
+                "tab": "Membria EE (Enterprise)",
+                "groups": [
+                    {
+                        "group": "Обзор",
+                        "pages": [
+                            "membria-ee/overview",
+                            "membria-ee/getting-started",
+                            "membria-ee/concepts",
+                            "membria-ee/institutional-memory",
+                            "membria-ee/licensing",
+                            "membria-ee/use-cases"
+                        ]
+                    },
+                    {
+                        "group": "Развертывание и безопасность",
+                        "pages": [
+                            "membria-ee/deployment-hosting",
+                            "membria-ee/security-privacy"
+                        ]
+                    },
+                    {
+                        "group": "Продукт",
+                        "pages": [
+                            "membria-ee/decision-surface-enterprise"
+                        ]
+                    }
+                ]
+            }
+        ],
+        "global": {
+            "anchors": [
+                {
+                    "anchor": "Membria Reasoning Graph",
+                    "href": "https://membria.ai",
+                    "icon": "book-open-cover"
+                },
+                {
+                    "anchor": "Лог исследований",
+                    "href": "/membria",
+                    "icon": "lightbulb"
+                }
+            ]
+        }
+    },
+    "logo": {
+        "light": "/logo/light.svg",
+        "dark": "/logo/dark.svg"
+    },
+    "navbar": {
+        "links": [
+            {
+                "label": "Контакты",
+                "href": "mailto:hello@membria.ai"
+            }
+        ],
+        "primary": {
+            "type": "button",
+            "label": "Присоединяйтесь",
+            "href": "https://membria.ai/"
+        }
+    },
+    "contextual": {
+        "options": [
+            "copy",
+            "view",
+            "chatgpt",
+            "claude",
+            "perplexity",
+            "mcp",
+            "cursor",
+            "vscode"
+        ]
+    },
+    "footer": {
+        "socials": {
+            "x": "https://x.com/membriace",
+            "github": "https://github.com/membria",
+            "linkedin": "https://linkedin.com/company/membria"
+        }
+    },
+    "redirects": [
+        {
+            "source": "/membriace/business-model",
+            "destination": "/membria-ce/business-model"
+        },
+        {
+            "source": "/membriace/client-runtime",
+            "destination": "/membria-ce/client-runtime"
+        },
+        {
+            "source": "/membriace/client",
+            "destination": "/membria-ce/client"
+        },
+        {
+            "source": "/membriace/competitive",
+            "destination": "/membria-ce/competitive"
+        },
+        {
+            "source": "/membriace/concepts",
+            "destination": "/membria-ce/concepts"
+        },
+        {
+            "source": "/membriace/dbb-and-lora-runtime",
+            "destination": "/membria-ce/dbb-and-lora-runtime"
+        },
+        {
+            "source": "/membriace/deployment-hosting",
+            "destination": "/membria-ce/deployment-hosting"
+        },
+        {
+            "source": "/membriace/diagrams",
+            "destination": "/membria-ce/diagrams"
+        },
+        {
+            "source": "/membriace/getting-started",
+            "destination": "/membria-ce/getting-started"
+        },
+        {
+            "source": "/membriace/kcg-gateways",
+            "destination": "/membria-ce/kcg-gateways"
+        },
+        {
+            "source": "/membriace/market",
+            "destination": "/membria-ce/market"
+        },
+        {
+            "source": "/membriace/overview",
+            "destination": "/membria-ce/overview"
+        },
+        {
+            "source": "/membriace/revenue-economics",
+            "destination": "/membria-ce/revenue-economics"
+        },
+        {
+            "source": "/membriace/security-privacy",
+            "destination": "/membria-ce/security-privacy"
+        },
+        {
+            "source": "/membriace/team",
+            "destination": "/membria-ce/team"
+        },
+        {
+            "source": "/membriace/technical",
+            "destination": "/membria-ce/technical"
+        },
+        {
+            "source": "/membriace/tokenomics",
+            "destination": "/membria-ce/tokenomics"
+        },
+        {
+            "source": "/membriace/treasury",
+            "destination": "/membria-ce/treasury"
+        },
+        {
+            "source": "/membriace/utility",
+            "destination": "/membria-ce/utility"
+        }
+    ]
+}
