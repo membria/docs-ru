@@ -65,10 +65,10 @@ flowchart TD
         T1[Tactical Task]
         T2[Decision Task]
         T3[Learning Task]
-        PG[Pre-Generation Context Fetch]
-        DS[Decision Surface (IDE Inline)]
-        DC[Decision Capture (DBB)]
-        AG[Agent / TENN (graph + logic)]
+        PG["Pre-Generation Context Fetch"]
+        DS["Decision Surface (IDE Inline)"]
+        DC["Decision Capture (DBB)"]
+        AG["Agent / TENN (graph + logic)"]
     end
 
     A --> TR
@@ -80,12 +80,12 @@ flowchart TD
     DS --> DC
     DC --> AG
 
-    AG --> PE[Policy Engine (Graph-Informed)]
-    PE --> MCP[MCP Server (Claude Runtime Control)]
-    MCP --> CC[Claude Code (stateless)]
-    MCP --> VG[Post-Generation Validators]
-    VG --> RG[Membria Reasoning Graph]
-    RG --> OCL[Outcome Capture Layer]
+    AG --> PE["Policy Engine (Graph-Informed)"]
+    PE --> MCP["MCP Server (Claude Runtime Control)"]
+    MCP --> CC["Claude Code (stateless)"]
+    MCP --> VG["Post-Generation Validators"]
+    VG --> RG["Membria Reasoning Graph"]
+    RG --> OCL["Outcome Capture Layer"]
     OCL --> RG
 ```
 
