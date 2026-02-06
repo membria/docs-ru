@@ -60,9 +60,7 @@ flowchart TD
         A[VS Code, GitHub PR, Jira, CI jobs]
     end
     
-    A --> CCP[Claude Control Plane (CCP)]
-
-    subgraph CCP
+    subgraph "Claude Control Plane (CCP)"
         TR[Task Router]
         T1[Tactical Task]
         T2[Decision Task]
@@ -73,7 +71,7 @@ flowchart TD
         AG[Agent / TENN (graph + logic)]
     end
 
-    CCP --> TR
+    A --> TR
     TR --> T1
     TR --> T2
     TR --> T3
