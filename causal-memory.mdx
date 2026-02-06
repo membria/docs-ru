@@ -17,7 +17,7 @@ description: "Разграничение между наблюдением и и
 - **Интервенция:** «Мы отключили функцию X» (Действие).
 
 ### Интеграция с состоянием убеждений (Belief State)
-Каждая интервенция запускает **байесовское обновление** в движке POMDP. Система рассчитывает $P(Consensus)$ для этой интервенции и отслеживает поверхностное согласие с помощью экстракции сигналов (Фаза 3 Дорожной карты).
+Каждая интервенция запускает **байесовское обновление** в [движке POMDP](/rg-architecture#112-pomdp-belief-state-tracking). Система рассчитывает $P(Consensus)$ для интервенции и отслеживает поверхностное согласие через экстракцию сигналов (см. [Cognitive Safety — Signal Extraction](/cognitive-safety#4-signal-extraction-quality)).
 
 ### Правило каузальной валидности
 Если результат $Outcome(Y)$ идентичен как для $do(Action)$, так и для $do(Nothing)$ внутри одного контекста, действие классифицируется как **Ритуал** (не имеющее причинной связи). В будущем система будет блокировать пути рассуждений, предлагающие это действие для достижения того же результата.
@@ -58,10 +58,13 @@ description: "Разграничение между наблюдением и и
 
 ```cypher
 // Атомарная проверка предложения X в контексте Z
-CALL db.idx.vector.queryNodes('Assumptions', 'vector_index', $proposal_vector, 3)
+CALL db.idx.vector.queryNodes('Assumptions', 'embedding', 3, vecf32($proposal_vector))
 YIELD node as assumption, score
 MATCH (assumption)<-[:RELIED_ON]-(d:Decision)-[:HAS_OUTCOME]->(o:Outcome)
-WHERE d.context_z_vector ~= $current_z_vector
+WITH assumption, d, o, score
+CALL db.idx.vector.queryNodes('Decision', 'context_z', 1, vecf32($current_z_vector))
+YIELD node as ctx_match, score as z_score
+WHERE d = ctx_match AND z_score > 0.8
 RETURN assumption.statement, avg(o.delta) as causal_impact
 ```
 
@@ -79,4 +82,3 @@ RETURN assumption.statement, avg(o.delta) as causal_impact
 - **Географический/Культурный контекст:** "Вендор надежен" (True в ЕС, False в Азии).
 - **Временная свежесть (Temporal Recency):** Взвешенное затухание гарантирует, что недавние исходы доминируют.
 - **Идентифицированные конфаундеры:** Исходы привязаны к конфаундерам (например, "Рыночный бум"), чтобы предотвратить ложную атрибуцию мастерства.
-

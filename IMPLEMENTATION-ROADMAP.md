@@ -1,4 +1,4 @@
-# Дорожная карта внедрения Decision Intelligence (Implementation Roadmap)
+# Слой Decision Intelligence - дорожная карта внедрения
 
 ## Назначение и область применения
 
