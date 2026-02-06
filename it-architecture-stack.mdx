@@ -37,15 +37,15 @@ flowchart TD
     end
 
     subgraph "Backend / Federation"
-        LDB -->|"sync"| FG["Federated Graph"]
+        LDB -->|sync| FG["Federated Graph"]
         FG --> FDB[("FalkorDB Hybrid Graph+Vector")]
         API["API Gateway"] --> AUTH["Auth & RBAC"]
         AUTH --> FG
     end
 
     subgraph "Model Escalation"
-        CO["Council Models"] -->|"escalation"| OR
-        CO -->|"distill"| LORA
+        CO["Council Models"] -->|escalation| OR
+        CO -->|distill| LORA
     end
 
     MCP --> OR
